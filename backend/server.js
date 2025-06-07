@@ -78,25 +78,30 @@ const REDIS_MESSAGES_KEY = 'guestbook:messages';
 async function initializeRedis() {
     const redisHost = process.env.REDIS_HOST;
     const redisPort = process.env.REDIS_PORT;
+    const redisPassword = process.env.REDIS_PASSWORD;
 
     if (!redisHost || !redisPort) {
-        console.warn('Missing REDIS_HOST or REDIS_PORT environment variables. Redis caching will be disabled.');
-        return; 
+        console.warn('Missing REDIS_HOST or REDIS_PORT. Redis caching will be disabled.');
+        return;
     }
 
+    const redisUrl = redisPassword
+        ? `redis://:${redisPassword}@${redisHost}:${redisPort}`
+        : `redis://${redisHost}:${redisPort}`;
+    
+    console.log(`Attempting to connect to Redis at: ${redisHost}:${redisPort}`);
+
     redisClient = redis.createClient({
-        url: `redis://${redisHost}:${redisPort}`,
-     });
+        url: redisUrl
+    });
 
     redisClient.on('error', (err) => console.error('Redis Client Error:', err));
     redisClient.on('connect', () => console.log('Successfully connected to Redis.'));
-    redisClient.on('reconnecting', () => console.log('Redis client is reconnecting...'));
-    redisClient.on('end', () => console.log('Redis client connection has ended.'));
-
+    
     try {
         await redisClient.connect();
     } catch (error) {
-        console.error('Failed to connect to Redis during initialization. Caching may not work:', error);
+        console.error('Failed to connect to Redis during initialization:', error);
     }
 }
 
