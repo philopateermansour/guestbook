@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageText = document.getElementById('messageText');
     const messagesContainer = document.getElementById('messagesContainer');
 
-    const API_URL = 'http://localhost:3000/api/messages'; 
+    const API_URL = '/api/messages'; 
 
     async function fetchMessages() {
         try {
