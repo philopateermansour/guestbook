@@ -3,12 +3,33 @@ const express = require('express');
 const mysql = require('mysql2/promise'); 
 const redis = require('redis');
 const cors = require('cors');
+const client = require('prom-client');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors()); 
 app.use(express.json()); 
+
+const register = new client.Registry();
+client.collectDefaultMetrics({ register });
+
+const httpRequestDurationMicroseconds = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'code'],
+  buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10] 
+});
+
+app.use((req, res, next) => {
+  const end = httpRequestDurationMicroseconds.startTimer();
+  
+  res.on('finish', () => {
+
+    end({ route: req.route ? req.route.path : req.path, code: res.statusCode, method: req.method });
+  });
+  next();
+});
 
 let dbPool;
 
@@ -105,6 +126,11 @@ async function initializeRedis() {
     }
 }
 
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
+
 app.get('/api/messages', async (req, res) => {
     try {
         if (redisClient && redisClient.isOpen) {
@@ -174,6 +200,7 @@ async function startServer() {
     app.listen(port, () => {
         console.log(`Backend server running at http://localhost:${port}`);
         console.log(`API endpoints available at http://localhost:${port}/api/messages`);
+        console.log(`Metrics available at http://localhost:${port}/metrics`);
     });
 }
 
